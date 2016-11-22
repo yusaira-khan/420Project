@@ -134,7 +134,18 @@ unsigned char* grey_color(AVFrame *frame ){
     }
     return arr;
 }
-
+get_MSE(unsigned char* image1, unsigned char*image2, int width1, int height1){
+int i;
+    float im1, im2, diff, sum, MSE;
+  sum = 0;
+  for (i = 0; i < width1 * height1; i++) {
+    im1 = (float)image1[i];
+    im2 = (float)image2[i];
+    diff = im1 - im2;
+    sum += diff * diff;
+  }
+  MSE = sqrt(sum) / (width1 * height1);
+}
 
 int main(int argc, char **argv)
 {

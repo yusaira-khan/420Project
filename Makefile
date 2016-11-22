@@ -1,0 +1,1 @@
+gcc-6 video.c -I /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/ -I/usr/local/Cellar/ffmpeg/3.2/include -I/usr/local/include/SDL -lswscale  -lavcodec   -lSDL -lavformat -lavutil -lavfilter -o estimate
