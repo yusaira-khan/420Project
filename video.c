@@ -16,44 +16,11 @@ modified from
 #include <libavutil/pixfmt.h>
 
 #include <stdio.h>
-#include <libswscale/swscale.h>
 
 
 #define BOX_WIDTH 16
 #define SEARCH_BOUNDARY 7
-/*{
-  unsigned error1, error2;
-  unsigned char *image1, *image2;
-  unsigned width1, height1, width2, height2;
 
-  error1 = 0;//lodepng_decode32_file(&image1, &width1, &height1, input_filename_1);
-  error2 = 0;//lodepng_decode32_file(&image2, &width2, &height2, input_filename_2);
-  if(error1) printf("error %u: %s\n", error1, lodepng_error_text(error1));
-  if(error2) printf("error %u: %s\n", error2, lodepng_error_text(error2));
-  if(width1 != width2) printf("images do not have same width\n");
-  if(height1 != height2) printf("images do not have same height\n");
-
-  // process image
-  float im1, im2, diff, sum, MSE;
-  sum = 0;
-  for (int i = 0; i < width1 * height1; i++) {
-    im1 = (float)image1[i];
-    im2 = (float)image2[i];
-    diff = im1 - im2;
-    sum += diff * diff;
-  }
-  MSE = sqrt(sum) / (width1 * height1);
-
-  free(image1);
-  free(image2);
-
-  return MSE;
-}
-*/
-const char *filter_descr = "scale=78:24,transpose=cclock";
-/* other way:
-   scale=78:24 [scl]; [scl] transpose=cclock // assumes "[in]" and "[out]" to be input output pads respectively
- */
 
 static AVFormatContext *fmt_ctx;
 static AVCodecContext *dec_ctx;
@@ -137,7 +104,7 @@ unsigned char* grey_color(AVFrame *frame ){
     }
     return arr;
 }
-unsigned int getMAD(unsigned char* image1, unsigned char*image2, int width, unsigned int x2,unsigned int  y2,unsigned int x1, unsigned int y1){
+unsigned int getMAD(unsigned char* image1, unsigned char*image2, int width, int height, unsigned int x2,unsigned int  y2,unsigned int x1, unsigned int y1){
     int i,j,m1,n1,m2,n2;
     unsigned char im1, im2;
     unsigned int diff, sum, MAD;
@@ -147,34 +114,34 @@ unsigned int getMAD(unsigned char* image1, unsigned char*image2, int width, unsi
         m1=x1+i;
         m2=x2+i;
         if(m1<0 || m2 < 0 || m1>=width || m2 >= width) {
-     printf("width out of bound x1 %d x2 %d\n",m1,m2 );
-            return 63557;
-        }
-        for (j = 0; j < BOX_WIDTH; j++) {
+           // printf("width out of bound x1 %d x2 %d\n",m1,m2 );
+           return 63557;
+       }
+       for (j = 0; j < BOX_WIDTH; j++) {
 
-            n1=y1+j;
-            n2=y2+j;
+        n1=y1+j;
+        n2=y2+j;
 
-            if(n1<0 || n2 < 0 || n1>=dec_ctx->height || n2 >= dec_ctx->height ) {
-     printf("height out of bound y1 %d y2 %d %d\n",n1,n2,dec_ctx->height );
-                return 63557;
+        if(n1<0 || n2 < 0 || n1>=height || n2 >= height ) {
+           // printf("height out of bound y1 %d y2 %d %d\n",n1,n2,height );
+           return 63557;
 
-            }
+       }
                         // printf("Computing sum\n");
 
-            im1 = image1[m1*width+n1];
-            im2 = image2[m2*width+n2];
-            diff = im1 - im2;
-            if (diff < 0){ diff = - diff;}
-            sum += diff ;
+       im1 = image1[m1*width+n1];
+       im2 = image2[m2*width+n2];
+       diff = im1 - im2;
+       if (diff < 0){ diff = - diff;}
+       sum += diff ;
             // printf("Computing sum %d \n", sum);
 
-        }
-    }
+   }
+}
 
-    MAD = sum / (BOX_WIDTH*BOX_WIDTH);
+MAD = sum / (BOX_WIDTH*BOX_WIDTH);
     // printf("%d\n",MAD );
-    return MAD;
+return MAD;
 }
 
 
@@ -204,16 +171,9 @@ void estimate(unsigned char* image1, unsigned char*image2, int width, int height
                 x1 = x2 + m;
                 y1 = y2 + n;
                 if (x1<0 || y1 < 0 || x1 + BOX_WIDTH  >= width || y1 + BOX_WIDTH >= height ){
-                    printf(" Exiting width out of bound x1 %d x2 %d %d\n",x1,x2,width );
-                    printf(" Exiting height out of bound y1 %d y2 %d %d\n",y1,y2,dec_ctx->height );
-
-
                     continue;
-                    printf("still\n");
                 }
-                curr_cost = getMAD(image1,image2,width,x2,y2,x1,y1);
-                // printf("%d %d\n",m,m< SEARCH_BOUNDARY);
-
+                curr_cost = getMAD(image1,image2,width,height,x2,y2,x1,y1);
                 if(curr_cost < min_cost){
                     min_cost = curr_cost;
                     dx=m;
@@ -222,38 +182,55 @@ void estimate(unsigned char* image1, unsigned char*image2, int width, int height
                 computations++;
             } 
         }
-        // printf("%s\n", );
-        // vectors[box_count]=dx;
-        // vectors[box_count+1]=dy;
+        if (min_cost!=65537){
         total_y+=dy;
         total_x+=dx;
         box_count++;
-        printf("box_count %d box_size %d \n",box_count,box_size);
-                        // printf("min_cost %d box_count %d",min_cost,box_count);
+    }
 
     }
 
+    }
+    // printf("Fin\n");
+    *mean_y = total_y * 1.0/box_count;
+    *mean_x = total_x * 1.0/ box_count;
+    // free(vectors);
 }
-printf("Fin\n");
-*mean_y = total_y * 1.0/box_count;
-*mean_x = total_x * 1.0/ box_count;
-// free(vectors);
-}
+void save_frame (unsigned char * potato,int num, int width, int height){
+    int i=0;
+    FILE* file;
+    char args[10];
 
+    snprintf(args, sizeof(args),"%d.c",num);
+    file=fopen(args,"w+");
+
+    fprintf(file, "int width_%d = %d, height_%d = %d;\n",
+        num,width,num,height);
+
+    fprintf(file, "unsigned char frame_%d[]={\n\t%d", num, potato[0]);
+    for(i=1;i<width*height;i++){
+        fprintf(file, ",\n\t%d", num, potato[i]);
+    }
+
+    fprintf(file, "\n};\n");
+
+
+    fclose(file);
+
+
+
+}
 int main(int argc, char **argv)
 {
     int ret, first_turn=1, num_frames=0;
     AVPacket packet;
     AVFrame *frame = av_frame_alloc();
 
-    // AVFrame *rgb_frame = av_frame_alloc(); 
-    AVFrame *frame_new = av_frame_alloc();
-    AVFrame *frame_old = NULL;
     int got_frame;
     unsigned char * color_old, *color_new,*color_temp;
     float mean_x, mean_y, total_x=0,total_y=0;
 
-    if (!frame  ||!frame_new) {
+    if (!frame  ) {
         perror("Could not allocate frame");
         exit(1);
     }
@@ -261,15 +238,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "Usage: %s file\n", argv[0]);
         exit(1);
     }
-    
-
-    // sws_ctx =sws_getContext (
-    //     dec_ctx->width, dec_ctx->height,
-    //     dec_ctx->pix_fmt,
-    //     dec_ctx->width, dec_ctx->height,
-    //     2,// AVPixelFormat.PIX_FMT_RGB24,
-    //     SWS_BILINEAR, NULL, NULL,  NULL);
-
 
     av_register_all();
     avfilter_register_all();
@@ -295,7 +263,11 @@ int main(int argc, char **argv)
 
         //av_frame_unref(frame);
         color_old=grey_color(frame);
-        num_frames++;
+        av_frame_unref(frame);
+
+                num_frames++;
+
+        // save_frame(color_old,num_frames,dec_ctx->width,dec_ctx->height);
         break;
 
     }//get the 1st frame
@@ -303,8 +275,6 @@ int main(int argc, char **argv)
 
     while (1) {
         got_frame = gather_frame(frame);
-        
-
         if (got_frame <1){//needs toexit
             break;
         }
@@ -313,7 +283,10 @@ int main(int argc, char **argv)
         }
 
         color_new=grey_color(frame);
+        av_frame_unref(frame);
+
         printf("frames %d\n", num_frames);
+
 
         estimate(color_old,color_new,dec_ctx->width, dec_ctx->height,&mean_x,&mean_y);
         num_frames++;
@@ -324,36 +297,31 @@ int main(int argc, char **argv)
         color_temp = color_old;
         color_old = color_new;
         free(color_temp);
-        av_frame_unref(frame);
+
+        // save_frame(color_new,num_frames,dec_ctx->width,dec_ctx->height);
+        break;
 
     }
-
-
 
     //av_frame_unref(frame_new);
     if(num_frames>1){
 
-       mean_x= total_x/num_frames;
-       mean_y= total_y/num_frames;
+     mean_x= total_x/num_frames;
+     mean_y= total_y/num_frames;
 
 
-       printf("Total Motion \n \tX:\t %f\n \tY: \t%f",total_x,total_y);
+     printf("Total Motion \n \tX:\t %f\n \tY: \t%f",total_x,total_y);
                // printf(" Motion Center \n \tX:\t %d\n \tY: \t%d",mean_x, mean_y);
 
-
-       free(color_new);
-   }else{
+     free(color_new);
+ }else{
     printf("Whoops!\n");
 }
 end:
-sws_freeContext (sws_ctx);
 
 avcodec_close(dec_ctx);
 avformat_close_input(&fmt_ctx);
 av_frame_free(&frame);
-   // av_frame_free(&rgb_frame);
-av_frame_free(&frame_new);
-
 
 if (ret < 0 && ret != AVERROR_EOF) {
     fprintf(stderr, "Error occurred: %s\n", av_err2str(ret));

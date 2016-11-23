@@ -1,1 +1,19 @@
-gcc-6 video.c -I /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/ -I/usr/local/Cellar/ffmpeg/3.2/include -I/usr/local/include/SDL -lswscale  -lavcodec   -lSDL -lavformat -lavutil -lavfilter -o estimate
+
+
+UNAME_S := $(shell uname -s)
+
+LDFLAGS := -lavcodec    -lavformat -lavutil -lavfilter
+CFLAGS :=  $(shell pkg-config --cflags libavformat libavcodec libavutil)
+
+ifeq ($(UNAME_S),Darwin)
+    CFLAGS += -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/
+endif
+
+all:
+	gcc video.c $(CFLAGS) $(LDFLAGS) -o estimate 
+
+test:
+	gcc test.c $(CFLAGS) -o test
+
+clean:
+	rm test estimate
