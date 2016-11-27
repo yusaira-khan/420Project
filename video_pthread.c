@@ -10,6 +10,8 @@ modified from
 #include <libavutil/opt.h>
 #include <libavutil/pixfmt.h>
 
+#include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 
 #define BOX_WIDTH 16
@@ -18,6 +20,8 @@ modified from
 static AVFormatContext *fmt_ctx;
 static AVCodecContext *dec_ctx;
 static int video_stream_index = -1;
+
+unsigned int min_mad_cost = UINT_MAX;
 
 static int open_input_file(const char *filename) {
   int ret;
@@ -92,30 +96,48 @@ unsigned char *grey_color(AVFrame *frame) { // get grayscale color from a frame
   return arr;
 }
 
+struct mad_arg_struct {
+  const unsigned char *image1;
+  const unsigned char *image2;
+  int width;
+  int height;
+  unsigned int x2;
+  unsigned int y2;
+  unsigned int x1;
+  unsigned int y1;
+  unsigned int  m;
+  unsigned int  n;  
+  unsigned int* global_min_cost;
+  unsigned int*  dx;
+  unsigned int*  dy;  
+};
+
 // mean absolute value
-unsigned int getMAD(const unsigned char *image1, const unsigned char *image2,
-                    int width, int height, unsigned int x2, unsigned int y2,
-                    unsigned int x1, unsigned int y1) {
+void getMAD(void *args) {
+  struct mad_arg_struct *mad_args = args;
+
   int i, j, m1, n1, m2, n2, diff;
   unsigned char im1, im2;
-  unsigned int sum, MAD;
+  unsigned int sum, MAD, cost;
   sum = 0;
 
   for (i = 0; i < BOX_WIDTH; i++) {
-    m1 = x1 + i;
-    m2 = x2 + i;
-    if (m1 < 0 || m2 < 0 || m1 >= height || m2 >= height) {
-      return 63557;
+    m1 = mad_args->x1 + i;
+    m2 = mad_args->x2 + i;
+    if (m1 < 0 || m2 < 0 || m1 >= mad_args->height || m2 >= mad_args->height) {
+      cost = 63557;
+      break;
     }
     for (j = 0; j < BOX_WIDTH; j++) {
 
-      n1 = y1 + j;
-      n2 = y2 + j;
-      if (n1 < 0 || n2 < 0 || n1 >= width || n2 >= width) {
-        return 63557;
+      n1 = mad_args->y1 + j;
+      n2 = mad_args->y2 + j;
+      if (n1 < 0 || n2 < 0 || n1 >= mad_args->width || n2 >= mad_args->width) {
+        cost = 63557;
+        break;
       }
-      im1 = image1[m1 + n1 * width];
-      im2 = image2[m2 + width * n2];
+      im1 = mad_args->image1[m1 + n1 * mad_args->width];
+      im2 = mad_args->image2[m2 + mad_args->width * n2];
       diff = im1 - im2;
       if (diff < 0) {
         diff = -diff;
@@ -123,17 +145,20 @@ unsigned int getMAD(const unsigned char *image1, const unsigned char *image2,
       sum += diff;
     }
   }
-  MAD = sum / (BOX_WIDTH * BOX_WIDTH);
-  // printf("%d\n",MAD );
-  return MAD;
+  cost = sum / (BOX_WIDTH * BOX_WIDTH);
+  if (cost < *(mad_args->global_min_cost)) {
+    *(mad_args->global_min_cost) = cost;
+    *(mad_args->dx) = mad_args->m;
+    *(mad_args->dy) = mad_args->n;
+  }
 }
 
 // Use exhaustive search Block Matching Motion Estimation algorithm
 void estimate(const unsigned char *image1, const unsigned char *image2,
               int width, int height, float *mean_x, float *mean_y) {
   unsigned int total = (width * height), x2, y2, min_cost, curr_cost, box_count,
-               total_x, total_y, box_size;
-  int m, n, dy, dx, x1, y1;
+               total_x, total_y, box_size, m, n, dx, dy;
+  int x1, y1;
   box_size = (total / BOX_WIDTH / BOX_WIDTH * 2);
   unsigned char *vectors = malloc(sizeof(char) * box_size);
   box_count = 0;
@@ -154,12 +179,23 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
               y1 + BOX_WIDTH >= height) { // dont execute if out f bounds
             continue;
           }
-          curr_cost = getMAD(image1, image2, width, height, x2, y2, x1, y1);
-          if (curr_cost < min_cost) { // calculate minimum cost
-            min_cost = curr_cost;
-            dx = m;
-            dy = n;
-          }
+
+          struct mad_arg_struct mad_args;
+          mad_args.image1 = image1;
+          mad_args.image2 = image2;
+          mad_args.width = width;
+          mad_args.height = height;
+          mad_args.x2 = x2;
+          mad_args.y2 = y2;
+          mad_args.x1 = x1;
+          mad_args.y1 = y1;
+          mad_args.m = m;
+          mad_args.n = n;
+          mad_args.global_min_cost = &min_cost;
+          mad_args.dy = &dy;
+          mad_args.dx = &dx;
+
+          getMAD((void *) &mad_args);  // this will update  min_cost, dy, and dx
         }
       }
       if (min_cost < 65537) {
