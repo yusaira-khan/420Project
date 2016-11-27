@@ -1,4 +1,7 @@
 test
 estimate
+estimate_pthread
 *.swp
 estimate.dSYM/
+estimate_pthread.dSYM/
+callgrind.*
