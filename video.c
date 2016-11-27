@@ -174,7 +174,7 @@ void estimate(unsigned char* image1, unsigned char*image2,
     }
     *mean_y = total_y * 1.0 / box_count;
     *mean_x = total_x * 1.0 / box_count;
-    free(vectors);
+    free(vectors);//other calculation can be done with this
 }
 
 /*Save frams byte in a .c file. to generate tests*/
@@ -199,99 +199,71 @@ void save_frame (unsigned char * potato,int num, int width, int height){
 
 int main(int argc, char **argv)
 {
-    int ret, first_turn=1, num_frames=0;
-    AVPacket packet;
-    AVFrame *frame = av_frame_alloc();
+int ret, first_turn = 1, num_frames = 0;
+AVPacket packet;
+AVFrame *frame = av_frame_alloc();
 
-    int got_frame;
-    unsigned char * color_old, *color_new,*color_temp;
-    float mean_x, mean_y, total_x=0,total_y=0;
+int got_frame;
+unsigned char * color_old, *color_new, *color_temp;
+float mean_x, mean_y, total_x = 0, total_y = 0;
 
-    if (!frame  ) {
-        perror("Could not allocate frame");
-        exit(1);
-    }
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s file\n", argv[0]);
-        exit(1);
-    }
+if (!frame  ) {
+    perror("Could not allocate frame");
+    exit(1);
+}
+if (argc != 2) {
+    fprintf(stderr, "Usage: %s file\n", argv[0]);
+    exit(1);
+}
 
-    av_register_all();
-    avfilter_register_all();
+av_register_all();
+avfilter_register_all();
 
-    if ((ret = open_input_file(argv[1])) < 0)
-        goto end;
-    // if ((ret = init_filters(filter_descr)) < 0)
-    //     goto end;
+if ((ret = open_input_file( argv[1] )) < 0)
+    goto end;
 
-    /* read all packets */
-
-    while (1) {
-        got_frame = gather_frame(frame);
-       // printf("FIRST\n");
-        if (got_frame <1){//needs toexit
-            break;
-        }
-        //printf("FIN\n");
-        if(got_frame==2){//stream was different
-            continue;
-        }
-        // printf("FIN\n");
-
-        //av_frame_unref(frame);
-        color_old=grey_color(frame);
-        av_frame_unref(frame);
-
-                num_frames++;
-
-        // save_frame(color_old,num_frames,dec_ctx->width,dec_ctx->height);
+while (1) {
+    got_frame = gather_frame(frame);
+    if (got_frame < 1 ){//needs toexit
         break;
-
-    }//get the 1st frame
-
-
-    while (1) {
-        got_frame = gather_frame(frame);
-        if (got_frame <1){//needs toexit
-            break;
-        }
-        if(got_frame==2){//stream was different
-            continue;
-        }
-
-        color_new=grey_color(frame);
-        av_frame_unref(frame);
-
-        printf("frames %d\n", num_frames);
-
-
-       estimate(color_old,color_new,dec_ctx->width, dec_ctx->height,&mean_x,&mean_y);
-        num_frames++;
-        // printf("frames %d\n", num_frames);
-        total_x += mean_x;
-        total_y += mean_y;
-
-        color_temp = color_old;
-        color_old = color_new;
-        free(color_temp);
-
-        // save_frame(color_new,num_frames,dec_ctx->width,dec_ctx->height);
-        //break;
-
     }
+    if(got_frame == 2){//stream was different
+        continue;
+    }
+    if (first_turn){
+        color_old = grey_color(frame);
+        av_frame_unref(frame);
+        first_turn = 0;
+        num_frames++;
+
+        continue;
+    }
+    color_new = grey_color(frame);
+    av_frame_unref(frame);
+
+    estimate(color_old, color_new, dec_ctx->width, dec_ctx->height, &mean_x, &mean_y);
+    num_frames++;
+    total_x += mean_x;
+    total_y += mean_y;
+
+    color_temp = color_old;//swap nw and old frames
+    color_old = color_new;
+    free(color_temp);
+
+}
 
     //av_frame_unref(frame_new);
-    if(num_frames>1){
+if(num_frames > 1){
 
-     mean_x= total_x/num_frames;
-     mean_y= total_y/num_frames;
+    mean_x = total_x / num_frames;
+    mean_y = total_y / num_frames;
 
+    printf("Gather information from %d frames\n", num_frames );
+    printf("Mean Motion Vector\n \tX:\t %f\n \tY: \t%f", mean_x, mean_y);
 
-     printf("Total Motion \n \tX:\t %f\n \tY: \t%f\n",mean_x,mean_y);
-               // printf(" Motion Center \n \tX:\t %d\n \tY: \t%d",mean_x, mean_y);
-
-     free(color_new);
- }else{
+    free(color_new);
+    }
+else{
     printf("Whoops!\n");
 }
 end:
