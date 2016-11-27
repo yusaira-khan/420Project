@@ -93,7 +93,7 @@ unsigned char *grey_color(AVFrame *frame) {  // get grayscale color from a frame
 }
 
 // mean absolute value
-unsigned int getMAD(unsigned char *image1, unsigned char *image2, int width,
+unsigned int getMAD(const unsigned char *image1, const unsigned char *image2, int width,
                     int height, unsigned int x2, unsigned int y2,
                     unsigned int x1, unsigned int y1) {
   int i, j, m1, n1, m2, n2, diff;
@@ -129,7 +129,7 @@ unsigned int getMAD(unsigned char *image1, unsigned char *image2, int width,
 }
 
 // Use exhaustive search Block Matching Motion Estimation algorithm
-void estimate(unsigned char *image1, unsigned char *image2, int width,
+void estimate(const unsigned char *image1, const unsigned char *image2, int width,
               int height, float *mean_x, float *mean_y) {
   unsigned int total = (width * height), x2, y2, min_cost, curr_cost,
                box_count, total_x, total_y, box_size;
