@@ -10,7 +10,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 all:
-	gcc video.c $(CFLAGS) $(LDFLAGS) -o estimate 
+	gcc -g video.c $(CFLAGS) $(LDFLAGS) -o estimate 
 
 test:
 	gcc test.c $(CFLAGS) -o test

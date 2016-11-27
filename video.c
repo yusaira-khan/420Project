@@ -78,7 +78,7 @@ int gather_frame(AVFrame *frame){/*fetch a frame*/
 }
 
 unsigned char* grey_color(AVFrame *frame ){ /*get grayscale color from a frame*/
-    unsigned int total = (dec_ctx->width * dec_ctx->height), i;
+    unsigned int total = (dec_ctx->width * dec_ctx->height), i = 0;
     unsigned char* arr=NULL;
     arr = malloc( sizeof(char) * total); 
 
