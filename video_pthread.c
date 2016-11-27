@@ -13,6 +13,7 @@ modified from
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
 
 #define BOX_WIDTH 16
 #define SEARCH_BOUNDARY 7
@@ -106,16 +107,17 @@ struct mad_arg_struct {
   unsigned int y2;
   unsigned int x1;
   unsigned int y1;
-  int  m;
-  int  n;  
-  unsigned int* global_min_cost;
-  int*  dx;
-  int*  dy;  
+  int m;
+  int n;
+  unsigned int *global_min_cost;
+  int *dx;
+  int *dy;
 };
 
 // mean absolute value
-// Note that this (obviously) doesn't return anything and instead mutates 'global' variables
-void getMAD(void *args) {
+// Note that this (obviously) doesn't return anything and instead mutates
+// 'global' variables
+void *getMAD(void *args) {
   struct mad_arg_struct *mad_args = args;
 
   int i, j, m1, n1, m2, n2, diff;
@@ -148,7 +150,7 @@ void getMAD(void *args) {
     }
   }
   cost = sum / (BOX_WIDTH * BOX_WIDTH);
-  
+
   pthread_mutex_lock(&lock);
   if (cost < *(mad_args->global_min_cost)) {
     *(mad_args->global_min_cost) = cost;
@@ -156,6 +158,7 @@ void getMAD(void *args) {
     *(mad_args->dy) = mad_args->n;
   }
   pthread_mutex_unlock(&lock);
+  return NULL;
 }
 
 // Use exhaustive search Block Matching Motion Estimation algorithm
@@ -176,12 +179,18 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
       dy = 0;
       dx = 0;
       
+      // int num_pthreads = 4;
+      int num_pthreads = 4 * SEARCH_BOUNDARY * SEARCH_BOUNDARY;
+      pthread_t tid[num_pthreads];
+      int *pthreads_in_use = malloc (sizeof (int) * num_pthreads);
+      memset(pthreads_in_use, 0, sizeof(int) * num_pthreads);
+
       for (m = -SEARCH_BOUNDARY; m < SEARCH_BOUNDARY; m++) {
         for (n = -SEARCH_BOUNDARY; n < SEARCH_BOUNDARY; n++) {
           x1 = x2 + m;
           y1 = y2 + n;
           if (x1 < 0 || y1 < 0 || x1 + BOX_WIDTH >= width ||
-              y1 + BOX_WIDTH >= height) { // dont execute if out f bounds
+              y1 + BOX_WIDTH >= height) { // dont execute if out of bounds
             continue;
           }
 
@@ -200,9 +209,28 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
           mad_args.dy = &dy;
           mad_args.dx = &dx;
 
-          getMAD((void *) &mad_args);  // this will update min_cost, dy, and dx
+          int current_tid = (m * n) % num_pthreads;
+          // % is the remainder function, not modulo, so we need to ensure current_tid is positive, for obvious reasons
+          if (current_tid < 0) {  
+            current_tid = current_tid + num_pthreads;
+          }
+          if (pthread_create(&(tid[current_tid]), NULL, &getMAD,
+                             (void *)&mad_args) != 0) {
+            printf("Failed to create pthread\n");
+            exit(0);
+          }; // getMAD will update min_cost, dy, and dx
+          pthreads_in_use[current_tid] = 1; 
         }
       }
+     
+     int j = 0;
+     for (j = 0; j < num_pthreads; j++) {
+       if (pthreads_in_use[j]) {
+          pthread_join(tid[j], NULL);
+	}
+    }
+
+      
       if (min_cost < 65537) {
         total_y += dy;
         total_x += dx;
@@ -263,7 +291,7 @@ int main(int argc, char **argv) {
   }
 
   if (pthread_mutex_init(&lock, NULL) != 0) {
-    printf("Pthread mutex initiation failed\n"); 
+    printf("Pthread mutex initiation failed\n");
     goto end;
   }
 
