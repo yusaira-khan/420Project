@@ -95,9 +95,9 @@ unsigned char *grey_color(AVFrame *frame) { /*get grayscale color from a frame*/
 unsigned int getMAD(unsigned char *image1, unsigned char *image2, int width,
                     int height, unsigned int x2, unsigned int y2,
                     unsigned int x1, unsigned int y1) {
-  int i, j, m1, n1, m2, n2;
+  int i, j, m1, n1, m2, n2, diff;
   unsigned char im1, im2;
-  unsigned int diff, sum, MAD;
+  unsigned int sum, MAD;
   sum = 0;
 
   for (i = 0; i < BOX_WIDTH; i++) {
@@ -130,9 +130,9 @@ unsigned int getMAD(unsigned char *image1, unsigned char *image2, int width,
 /*Use exsaustive search Block Matching Motion Estimation algorithm*/
 void estimate(unsigned char *image1, unsigned char *image2, int width,
               int height, float *mean_x, float *mean_y) {
-  unsigned int total = (width * height), x2, y2, x1, y1, min_cost, curr_cost,
+  unsigned int total = (width * height), x2, y2, min_cost, curr_cost,
                box_count, total_x, total_y, box_size;
-  int m, n, dy, dx;
+  int m, n, dy, dx, x1, y1;
   box_size = (total / BOX_WIDTH / BOX_WIDTH * 2);
   unsigned char *vectors = malloc(sizeof(char) * box_size);
   box_count = 0;
@@ -188,7 +188,7 @@ void save_frame(unsigned char *potato, int num, int width, int height) {
 
   fprintf(file, "unsigned char frame_%d[] = {\n\t%d", num, potato[0]);
   for (i = 1; i < width * height; i++) {
-    fprintf(file, ",\n\t%d", num, potato[i]);
+    fprintf(file, ",\n%d\t%d", num, potato[i]);
   }
 
   fprintf(file, "\n};\n");
