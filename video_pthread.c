@@ -16,12 +16,13 @@ modified from
 
 #define BOX_WIDTH 16
 #define SEARCH_BOUNDARY 7
+#define DEFAULT_NUM_PTHREADS 8
 
 static AVFormatContext *fmt_ctx;
 static AVCodecContext *dec_ctx;
 static int video_stream_index = -1;
 
-unsigned int min_mad_cost = UINT_MAX;
+pthread_mutex_t lock;
 
 static int open_input_file(const char *filename) {
   int ret;
@@ -113,6 +114,7 @@ struct mad_arg_struct {
 };
 
 // mean absolute value
+// Note that this (obviously) doesn't return anything and instead mutates 'global' variables
 void getMAD(void *args) {
   struct mad_arg_struct *mad_args = args;
 
@@ -146,11 +148,14 @@ void getMAD(void *args) {
     }
   }
   cost = sum / (BOX_WIDTH * BOX_WIDTH);
+  
+  pthread_mutex_lock(&lock);
   if (cost < *(mad_args->global_min_cost)) {
     *(mad_args->global_min_cost) = cost;
     *(mad_args->dx) = mad_args->m;
     *(mad_args->dy) = mad_args->n;
   }
+  pthread_mutex_unlock(&lock);
 }
 
 // Use exhaustive search Block Matching Motion Estimation algorithm
@@ -172,14 +177,11 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
       dx = 0;
       
       for (m = -SEARCH_BOUNDARY; m < SEARCH_BOUNDARY; m++) {
-        printf("HI!\n");
         for (n = -SEARCH_BOUNDARY; n < SEARCH_BOUNDARY; n++) {
-          printf("YES!\n");
           x1 = x2 + m;
           y1 = y2 + n;
           if (x1 < 0 || y1 < 0 || x1 + BOX_WIDTH >= width ||
               y1 + BOX_WIDTH >= height) { // dont execute if out f bounds
-            printf("OUT OF BOUNDS!\n");
             continue;
           }
 
@@ -198,7 +200,7 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
           mad_args.dy = &dy;
           mad_args.dx = &dx;
 
-          getMAD((void *) &mad_args);  // this will update  min_cost, dy, and dx
+          getMAD((void *) &mad_args);  // this will update min_cost, dy, and dx
         }
       }
       if (min_cost < 65537) {
@@ -248,8 +250,8 @@ int main(int argc, char **argv) {
     perror("Could not allocate frame");
     exit(1);
   }
-  if (argc != 2) {
-    fprintf(stderr, "Usage: %s file\n", argv[0]);
+  if (argc != 2 && argc != 3) {
+    fprintf(stderr, "Usage: %s file [NUM_PTHREADS]\n", argv[0]);
     exit(1);
   }
 
@@ -257,6 +259,11 @@ int main(int argc, char **argv) {
   avfilter_register_all();
 
   if ((ret = open_input_file(argv[1])) < 0) {
+    goto end;
+  }
+
+  if (pthread_mutex_init(&lock, NULL) != 0) {
+    printf("Pthread mutex initiation failed\n"); 
     goto end;
   }
 
@@ -308,6 +315,7 @@ end:
   avcodec_close(dec_ctx);
   avformat_close_input(&fmt_ctx);
   av_frame_free(&frame);
+  pthread_mutex_destroy(&lock);
 
   if (ret < 0 && ret != AVERROR_EOF) {
     fprintf(stderr, "Error occurred: %s\n", av_err2str(ret));
