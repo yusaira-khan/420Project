@@ -54,7 +54,7 @@ static int open_input_file(const char *filename) {
   return 0;
 }
 
-int gather_frame(AVFrame *frame) {  // fetch a frame
+int gather_frame(AVFrame *frame) { // fetch a frame
   int ret, got_frame;
   AVPacket packet;
 
@@ -68,23 +68,23 @@ int gather_frame(AVFrame *frame) {  // fetch a frame
       av_log(NULL, AV_LOG_ERROR, "Error decoding video\n");
     }
 
-    if (got_frame) {  // successsfully read stream
+    if (got_frame) { // successsfully read stream
       return 1;
     }
   }
   return 2;
 }
 
-unsigned char *grey_color(AVFrame *frame) {  // get grayscale color from a frame
+unsigned char *grey_color(AVFrame *frame) { // get grayscale color from a frame
   unsigned int total = (dec_ctx->width * dec_ctx->height), i = 0;
   unsigned char *arr = NULL;
   arr = malloc(sizeof(char) * total);
 
-  for (int y = 0; y < dec_ctx->height; y++) {  // for each vertical row
+  for (int y = 0; y < dec_ctx->height; y++) { // for each vertical row
     int yy =
         frame->linesize[0] * y; // offset of next row stored inside linesize
     for (int x = 0; x < dec_ctx->width;
-         x++) {  // for each horizontal cell in row 
+         x++) { // for each horizontal cell in row
       arr[i] = frame->data[0][yy + x] / 2;
       i++;
     }
@@ -93,8 +93,8 @@ unsigned char *grey_color(AVFrame *frame) {  // get grayscale color from a frame
 }
 
 // mean absolute value
-unsigned int getMAD(const unsigned char *image1, const unsigned char *image2, int width,
-                    int height, unsigned int x2, unsigned int y2,
+unsigned int getMAD(const unsigned char *image1, const unsigned char *image2,
+                    int width, int height, unsigned int x2, unsigned int y2,
                     unsigned int x1, unsigned int y1) {
   int i, j, m1, n1, m2, n2, diff;
   unsigned char im1, im2;
@@ -129,10 +129,10 @@ unsigned int getMAD(const unsigned char *image1, const unsigned char *image2, in
 }
 
 // Use exhaustive search Block Matching Motion Estimation algorithm
-void estimate(const unsigned char *image1, const unsigned char *image2, int width,
-              int height, float *mean_x, float *mean_y) {
-  unsigned int total = (width * height), x2, y2, min_cost, curr_cost,
-               box_count, total_x, total_y, box_size;
+void estimate(const unsigned char *image1, const unsigned char *image2,
+              int width, int height, float *mean_x, float *mean_y) {
+  unsigned int total = (width * height), x2, y2, min_cost, curr_cost, box_count,
+               total_x, total_y, box_size;
   int m, n, dy, dx, x1, y1;
   box_size = (total / BOX_WIDTH / BOX_WIDTH * 2);
   unsigned char *vectors = malloc(sizeof(char) * box_size);
@@ -151,11 +151,11 @@ void estimate(const unsigned char *image1, const unsigned char *image2, int widt
           x1 = x2 + m;
           y1 = y2 + n;
           if (x1 < 0 || y1 < 0 || x1 + BOX_WIDTH >= width ||
-              y1 + BOX_WIDTH >= height) {  // dont execute if out f bounds
+              y1 + BOX_WIDTH >= height) { // dont execute if out f bounds
             continue;
           }
           curr_cost = getMAD(image1, image2, width, height, x2, y2, x1, y1);
-          if (curr_cost < min_cost) {  //calculate minimum cost
+          if (curr_cost < min_cost) { // calculate minimum cost
             min_cost = curr_cost;
             dx = m;
             dy = n;
@@ -217,16 +217,16 @@ int main(int argc, char **argv) {
   av_register_all();
   avfilter_register_all();
 
-  if ((ret = open_input_file(argv[1])) < 0) { 
-    goto end; 
+  if ((ret = open_input_file(argv[1])) < 0) {
+    goto end;
   }
 
   while (1) {
     got_frame = gather_frame(frame);
-    if (got_frame < 1) {  // needs toexit
+    if (got_frame < 1) { // needs toexit
       break;
     }
-    if (got_frame == 2) {  // stream was different
+    if (got_frame == 2) { // stream was different
       continue;
     }
     if (first_turn) {
