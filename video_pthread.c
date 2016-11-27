@@ -146,7 +146,6 @@ void getMAD(void *args) {
     }
   }
   cost = sum / (BOX_WIDTH * BOX_WIDTH);
-  printf("YO");
   if (cost < *(mad_args->global_min_cost)) {
     *(mad_args->global_min_cost) = cost;
     *(mad_args->dx) = mad_args->m;
@@ -198,7 +197,6 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
           mad_args.global_min_cost = &min_cost;
           mad_args.dy = &dy;
           mad_args.dx = &dx;
-          printf("CALLING MAD!\n");
 
           getMAD((void *) &mad_args);  // this will update  min_cost, dy, and dx
         }
