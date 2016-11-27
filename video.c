@@ -33,7 +33,7 @@ static int open_input_file(const char *filename) {
     return ret;
   }
 
-  /* select the video stream */
+  // select the video stream
   ret = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &dec, 0);
   if (ret < 0) {
     av_log(NULL, AV_LOG_ERROR,
@@ -44,7 +44,7 @@ static int open_input_file(const char *filename) {
   dec_ctx = fmt_ctx->streams[video_stream_index]->codec;
   av_opt_set_int(dec_ctx, "refcounted_frames", 1, 0);
 
-  /* init the video decoder */
+  // init the video decoder
   if ((ret = avcodec_open2(dec_ctx, dec, NULL)) < 0) {
     av_log(NULL, AV_LOG_ERROR, "Cannot open video decoder\n");
     return ret;
@@ -54,44 +54,45 @@ static int open_input_file(const char *filename) {
   return 0;
 }
 
-int gather_frame(AVFrame *frame) { /*fetch a frame*/
+int gather_frame(AVFrame *frame) {  // fetch a frame
   int ret, got_frame;
   AVPacket packet;
 
   if ((ret = av_read_frame(fmt_ctx, &packet)) < 0)
     return 0;
   if (packet.stream_index ==
-      video_stream_index) { /*check if this the sream we are reading from*/
+      video_stream_index) { // check if this the sream we are reading from
     got_frame = 0;
     ret = avcodec_decode_video2(dec_ctx, frame, &got_frame, &packet);
     if (ret < 0) {
       av_log(NULL, AV_LOG_ERROR, "Error decoding video\n");
     }
 
-    if (got_frame) { /*successsfully read stream*/
+    if (got_frame) {  // successsfully read stream
       return 1;
     }
   }
   return 2;
 }
 
-unsigned char *grey_color(AVFrame *frame) { /*get grayscale color from a frame*/
+unsigned char *grey_color(AVFrame *frame) {  // get grayscale color from a frame
   unsigned int total = (dec_ctx->width * dec_ctx->height), i = 0;
   unsigned char *arr = NULL;
   arr = malloc(sizeof(char) * total);
 
-  for (int y = 0; y < dec_ctx->height; y++) { /*for each vertical row*/
+  for (int y = 0; y < dec_ctx->height; y++) {  // for each vertical row
     int yy =
-        frame->linesize[0] * y; /*offset of next row stored inside linesize*/
+        frame->linesize[0] * y; // offset of next row stored inside linesize
     for (int x = 0; x < dec_ctx->width;
-         x++) { /*for each horizontal cell in row */
+         x++) {  // for each horizontal cell in row 
       arr[i] = frame->data[0][yy + x] / 2;
       i++;
     }
   }
   return arr;
 }
-/*mean ansolute value*/
+
+// mean absolute value
 unsigned int getMAD(unsigned char *image1, unsigned char *image2, int width,
                     int height, unsigned int x2, unsigned int y2,
                     unsigned int x1, unsigned int y1) {
@@ -127,7 +128,7 @@ unsigned int getMAD(unsigned char *image1, unsigned char *image2, int width,
   return MAD;
 }
 
-/*Use exsaustive search Block Matching Motion Estimation algorithm*/
+// Use exhaustive search Block Matching Motion Estimation algorithm
 void estimate(unsigned char *image1, unsigned char *image2, int width,
               int height, float *mean_x, float *mean_y) {
   unsigned int total = (width * height), x2, y2, min_cost, curr_cost,
@@ -150,11 +151,11 @@ void estimate(unsigned char *image1, unsigned char *image2, int width,
           x1 = x2 + m;
           y1 = y2 + n;
           if (x1 < 0 || y1 < 0 || x1 + BOX_WIDTH >= width ||
-              y1 + BOX_WIDTH >= height) { /*dont execute if out f bounds*/
+              y1 + BOX_WIDTH >= height) {  // dont execute if out f bounds
             continue;
           }
           curr_cost = getMAD(image1, image2, width, height, x2, y2, x1, y1);
-          if (curr_cost < min_cost) { /*calculate minimum cost*/
+          if (curr_cost < min_cost) {  //calculate minimum cost
             min_cost = curr_cost;
             dx = m;
             dy = n;
@@ -175,7 +176,7 @@ void estimate(unsigned char *image1, unsigned char *image2, int width,
   free(vectors); // other calculation can be done with this
 }
 
-/*Save frams byte in a .c file. to generate tests*/
+// Save frams byte in a .c file. to generate tests
 void save_frame(unsigned char *potato, int num, int width, int height) {
   int i = 0;
   FILE *file;
@@ -216,15 +217,16 @@ int main(int argc, char **argv) {
   av_register_all();
   avfilter_register_all();
 
-  if ((ret = open_input_file(argv[1])) < 0)
-    goto end;
+  if ((ret = open_input_file(argv[1])) < 0) { 
+    goto end; 
+  }
 
   while (1) {
     got_frame = gather_frame(frame);
-    if (got_frame < 1) { // needs toexit
+    if (got_frame < 1) {  // needs toexit
       break;
     }
-    if (got_frame == 2) { // stream was different
+    if (got_frame == 2) {  // stream was different
       continue;
     }
     if (first_turn) {
