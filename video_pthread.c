@@ -172,17 +172,17 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
   box_count = 0;
   total_x = 0;
   total_y = 0;
+  printf("height: %d width: %d\n", height, width);
   for (y2 = 0; y2 < height - BOX_WIDTH; y2 += BOX_WIDTH) {
+    printf("%d\n", y2);
     for (x2 = 0; x2 < width - BOX_WIDTH; x2 += BOX_WIDTH) {
-
       min_cost = 65537;
       dy = 0;
       dx = 0;
-      
-      // int num_pthreads = 4;
+
       int num_pthreads = 4 * SEARCH_BOUNDARY * SEARCH_BOUNDARY;
       pthread_t tid[num_pthreads];
-      int *pthreads_in_use = malloc (sizeof (int) * num_pthreads);
+      int *pthreads_in_use = malloc(sizeof(int) * num_pthreads);
       memset(pthreads_in_use, 0, sizeof(int) * num_pthreads);
 
       for (m = -SEARCH_BOUNDARY; m < SEARCH_BOUNDARY; m++) {
@@ -210,8 +210,9 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
           mad_args.dx = &dx;
 
           int current_tid = (m * n) % num_pthreads;
-          // % is the remainder function, not modulo, so we need to ensure current_tid is positive, for obvious reasons
-          if (current_tid < 0) {  
+          // % is the remainder function, not modulo, so we need to ensure
+          // current_tid is positive, for obvious reasons
+          if (current_tid < 0) {
             current_tid = current_tid + num_pthreads;
           }
           if (pthread_create(&(tid[current_tid]), NULL, &getMAD,
@@ -219,18 +220,17 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
             printf("Failed to create pthread\n");
             exit(0);
           }; // getMAD will update min_cost, dy, and dx
-          pthreads_in_use[current_tid] = 1; 
+          pthreads_in_use[current_tid] = 1;
         }
       }
-     
-     int j = 0;
-     for (j = 0; j < num_pthreads; j++) {
-       if (pthreads_in_use[j]) {
-          pthread_join(tid[j], NULL);
-	}
-    }
 
-      
+      int j = 0;
+      for (j = 0; j < num_pthreads; j++) {
+        if (pthreads_in_use[j]) {
+          pthread_join(tid[j], NULL);
+        }
+      }
+
       if (min_cost < 65537) {
         total_y += dy;
         total_x += dx;
