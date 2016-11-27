@@ -105,11 +105,11 @@ struct mad_arg_struct {
   unsigned int y2;
   unsigned int x1;
   unsigned int y1;
-  unsigned int  m;
-  unsigned int  n;  
+  int  m;
+  int  n;  
   unsigned int* global_min_cost;
-  unsigned int*  dx;
-  unsigned int*  dy;  
+  int*  dx;
+  int*  dy;  
 };
 
 // mean absolute value
@@ -158,8 +158,8 @@ void getMAD(void *args) {
 void estimate(const unsigned char *image1, const unsigned char *image2,
               int width, int height, float *mean_x, float *mean_y) {
   unsigned int total = (width * height), x2, y2, min_cost, curr_cost, box_count,
-               total_x, total_y, box_size, m = 0, n = 0, dx, dy;
-  int x1, y1;
+               total_x, total_y, box_size;
+  int x1, y1, m, n, dx, dy;
   box_size = (total / BOX_WIDTH / BOX_WIDTH * 2);
   unsigned char *vectors = malloc(sizeof(char) * box_size);
   box_count = 0;
