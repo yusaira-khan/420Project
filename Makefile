@@ -14,6 +14,9 @@ all: baseline pthread test
 baseline:
 	gcc -g video.c $(CFLAGS) $(LDFLAGS) -o estimate 
 
+omp:
+	gcc -g openmp_video.c $(CFLAGS) $(LDFLAGS) -fopenmp -o open_e 
+
 pthread:
 	gcc -g video_pthread.c $(CFLAGS) $(LDFLAGS) -o estimate_pthread
 
@@ -21,4 +24,4 @@ test:
 	gcc test.c $(CFLAGS) -o test
 
 clean:
-	rm test estimate estimate_pthread
+	rm test estimate estimate_pthread open_e
