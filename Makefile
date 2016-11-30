@@ -2,26 +2,33 @@
 
 UNAME_S := $(shell uname -s)
 
-LDFLAGS := -lavcodec    -lavformat -lavutil -lavfilter
-CFLAGS :=  $(shell pkg-config --cflags libavformat libavcodec libavutil)
+LD_VIDEO_FLAGS := -lavcodec    -lavformat -lavutil -lavfilter
+VIDEO_FLAGS :=  $(shell pkg-config --cflags libavformat libavcodec libavutil)
+NO_FLAGS := -Wall
 
 ifeq ($(UNAME_S),Darwin)
-    CFLAGS += -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/
+    VIDEO_FLAGS += -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/
+    NO_FLAGS += -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/
+
 endif
 
-all: baseline pthread test
+all: baseline omp   
+
+extract:
+	gcc -g extract.c $(VIDEO_FLAGS) $(LD_VIDEO_FLAGS) -o extract 
+	rm  -f all_frames.c && time ./extract videoplayback.mp4
+omp:
+	time gcc -g openmp_video.c $(NO_FLAGS) -fopenmp -o estimate_omp
+run_omp:
+	time ./estimate_omp 2
+pthread:
+	gcc -g video_pthread.c $(NO_FLAGS) -o estimate_pthread
 
 baseline:
-	gcc -g video.c $(CFLAGS) $(LDFLAGS) -o estimate 
-
-omp:
-	gcc -g openmp_video.c $(CFLAGS) $(LDFLAGS) -fopenmp -o open_e 
-
-pthread:
-	gcc -g video_pthread.c $(CFLAGS) $(LDFLAGS) -o estimate_pthread
-
-test:
-	gcc test.c $(CFLAGS) -o test
+	time gcc -g baseline.c $(NO_FLAGS) -o estimate_baseline
+run_baseline:
+	time ./estimate_baseline
+run: run_baseline run_omp
 
 clean:
-	rm test estimate estimate_pthread open_e
+	rm  -f estimate estimate_pthread estimate_omp extract all_frames.c

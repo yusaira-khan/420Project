@@ -1,0 +1,72 @@
+^  ~/Github/Project git:(master) ✗ make extract
+gcc -g extract.c -I/usr/local/Cellar/ffmpeg/3.2/include -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/ -lavcodec    -lavformat -lavutil -lavfilter -o extract
+extract.c: In function 'open_input_file':
+extract.c:44:3: warning: 'codec' is deprecated [-Wdeprecated-declarations]
+   dec_ctx = fmt_ctx->streams[video_stream_index]->codec;
+   ^~~~~~~
+In file included from extract.c:9:0:
+/usr/local/Cellar/ffmpeg/3.2/include/libavformat/avformat.h:893:21: note: declared here
+     AVCodecContext *codec;
+                     ^~~~~
+extract.c: In function 'gather_frame':
+extract.c:66:3: warning: 'avcodec_decode_video2' is deprecated [-Wdeprecated-declarations]
+   ret = avcodec_decode_video2(dec_ctx, frame, &got_frame, &packet);
+   ^~~
+In file included from extract.c:8:0:
+/usr/local/Cellar/ffmpeg/3.2/include/libavcodec/avcodec.h:4811:5: note: declared here
+ int avcodec_decode_video2(AVCodecContext *avctx, AVFrame *picture,
+     ^~~~~~~~~~~~~~~~~~~~~
+extract.c: In function 'main':
+extract.c:163:3: warning: implicit declaration of function 'avfilter_register_all' [-Wimplicit-function-declaration]
+   avfilter_register_all();
+   ^~~~~~~~~~~~~~~~~~~~~
+rm  -f all_frames.c
+time ./extract videoplayback.mp4
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'videoplayback.mp4':
+  Metadata:
+    major_brand     : mp42
+    minor_version   : 0
+    compatible_brands: isommp42
+    creation_time   : 2016-03-10T12:11:48.000000Z
+  Duration: 00:00:29.81, start: 0.000000, bitrate: 424 kb/s
+    Stream #0:0(und): Video: h264 (Constrained Baseline) (avc1 / 0x31637661), yuv420p, 480x360 [SAR 1:1 DAR 4:3], 326 kb/s, 29.97 fps, 29.97 tbr, 30k tbn, 59.94 tbc (default)
+    Metadata:
+      handler_name    : VideoHandler
+    Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 95 kb/s (default)
+    Metadata:
+      creation_time   : 2016-03-10T12:11:48.000000Z
+      handler_name    : IsoMedia File Produced by Google, 5-11-2011
+Gather information from 100 frames
+        2.52 real         2.27 user         0.14 sys
+^  ~/Github/Project git:(master) ✗ make all
+time gcc -g baseline.c -Wall -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/ -o estimate
+baseline.c: In function 'estimate':
+baseline.c:45:16: warning: unused variable 'total' [-Wunused-variable]
+   unsigned int total = (width * height), x2, y2, box_count;
+                ^~~~~
+baseline.c: In function 'main':
+baseline.c:88:10: warning: variable 't' set but not used [-Wunused-but-set-variable]
+   int i, t=1;
+          ^
+       46.12 real        42.72 user         2.09 sys
+time gcc -g openmp_video.c -Wall -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/ -fopenmp -o estimate_omp
+openmp_video.c: In function 'estimate':
+openmp_video.c:45:16: warning: unused variable 'total' [-Wunused-variable]
+   unsigned int total = (width * height), x2, y2, box_count;
+                ^~~~~
+       45.14 real        42.57 user         1.74 sys
+
+
+
+
+ ~/Github/Project git:(master) ✗ make run
+time ./estimate_baseline
+mean_x: -223.294601, mean_y -160.099915
+       22.71 real        21.99 user         0.14 sys
+time ./estimate_omp 1
+mean_x: -223.294601, mean_y -160.099915
+       22.11 real        21.85 user         0.09 sys
+time ./estimate_omp 2
+mean_x: -112.490410, mean_y -81.512733
+       10.74 real        21.25 user         0.05 sys
+^  ~/Github/Project git:(master) ✗
