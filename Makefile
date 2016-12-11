@@ -12,7 +12,7 @@ ifeq ($(UNAME_S),Darwin)
 
 endif
 
-all: baseline omp 
+all: baseline omp pthread
 
 extract:
 	gcc -g extract.c $(VIDEO_FLAGS) $(LD_VIDEO_FLAGS) -o extract 
@@ -22,9 +22,7 @@ omp:
 run_omp:
 	time ./estimate_omp 2
 pthread:
-	gcc -g video_pthread.c $(NO_FLAGS) -o estimate_pthread
-pthread_2:
-	gcc -g pthread_2.c $(NO_FLAGS) -o estimate_pthread_2
+	gcc -g pthread_video.c $(NO_FLAGS) -o estimate_pthread
 
 baseline:
 	time gcc -g baseline.c $(NO_FLAGS) -o estimate_baseline
