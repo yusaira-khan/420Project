@@ -50,8 +50,8 @@ void estimate(unsigned char *image1, unsigned char *image2, int width,
               int height, float *mean_x, float *mean_y) {
   int computations = 0,
       peas = (2 * SEARCH_BOUNDARY + 1) * (2 * SEARCH_BOUNDARY + 1), x1, y1;
-  unsigned int total = (width * height), x2, y2, min_cost, curr_cost,
-               box_count, total_x, total_y, box_size;
+  unsigned int total = (width * height), x2, y2, min_cost, curr_cost, box_count,
+               total_x, total_y, box_size;
   int m, n, dy, dx;
   box_size = (total / BOX_WIDTH / BOX_WIDTH * 2);
   // unsigned char* vectors = malloc( sizeof(char) * box_size);

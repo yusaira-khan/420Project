@@ -1,7 +1,9 @@
 test
 estimate
+estimate_baseline
 estimate_pthread
 *.swp
 estimate.dSYM/
+estimate_baseline.dSYM/
 estimate_pthread.dSYM/
 callgrind.*
