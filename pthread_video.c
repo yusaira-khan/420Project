@@ -43,10 +43,11 @@ unsigned int getMAD(const unsigned char *image1, const unsigned char *image2,
 }
 
 // Use exhaustive search Block Matching Motion Estimation algorithm
-void estimate(const unsigned char *image1, const unsigned char *image2, float* mean_x, float *mean_y) {
+void estimate(const unsigned char *image1, const unsigned char *image2,
+              float *mean_x, float *mean_y) {
   unsigned int x2, y2, box_count;
   float total_x = 0.0, total_y = 0.0;
-  int m, n, dy, dx, x1, y1,min_cost, curr_cost;
+  int m, n, dy, dx, x1, y1, min_cost, curr_cost;
   box_count = 1;
   for (y2 = 0; y2 < height - BOX_WIDTH; y2 += BOX_WIDTH) {
     for (x2 = 0; x2 < width - BOX_WIDTH; x2 += BOX_WIDTH) {
@@ -75,13 +76,13 @@ void estimate(const unsigned char *image1, const unsigned char *image2, float* m
         total_y += dy;
         total_x += dx;
         box_count++;
-              // printf("y2: %d, x2: %d, box: %d\n",y2,x2,box_count );
+        // printf("y2: %d, x2: %d, box: %d\n",y2,x2,box_count );
       }
     }
   }
-  
-  *mean_x= total_x  / box_count; // other calculation can be done with this
-  *mean_y= total_y  / box_count;
+
+  *mean_x = total_x / box_count; // other calculation can be done with this
+  *mean_y = total_y / box_count;
 }
 
 struct pthread_args_struct {
@@ -94,54 +95,57 @@ struct pthread_args_struct {
 void *work(void *args) {
   struct pthread_args_struct *pthread_args = args;
 
-  unsigned char * frame_1;
-  unsigned char * frame_2;
+  unsigned char *frame_1;
+  unsigned char *frame_2;
 
   int i = 1;
-  for (i = 1; i < num_frames; i++ ){
-  // for (i = 1; i < 35; i++ ){
+  for (i = 1; i < num_frames; i++) {
     if ((i % pthread_args->num_pthreads) == pthread_args->thread_num) {
-        frame_1 = frames[i-1];
-        frame_2 = frames[i];
-        estimate(frame_1, frame_2, &(pthread_args->mean_x_array[i]), &(pthread_args->mean_y_array[i]));
+      frame_1 = frames[i - 1];
+      frame_2 = frames[i];
+      estimate(frame_1, frame_2, &(pthread_args->mean_x_array[i]),
+               &(pthread_args->mean_y_array[i]));
     }
   }
   return NULL;
 }
 
 int main(int argc, char **argv) {
-  int i, num_pthreads=8;
-  float sum_x=0, sum_y=0;
-  
-  float * mean_x_array = (float*)malloc(sizeof(float) * (num_frames -1));
-  float * mean_y_array = (float*)malloc(sizeof(float) * (num_frames -1)); 
- if (argc > 1){
-      num_pthreads=atoi(argv[1]);
+  int i, num_pthreads = 8;
+  float sum_x = 0, sum_y = 0;
+
+  float *mean_x_array = (float *)malloc(sizeof(float) * (num_frames - 1));
+  float *mean_y_array = (float *)malloc(sizeof(float) * (num_frames - 1));
+  if (argc > 1) {
+    num_pthreads = atoi(argv[1]);
   }
-  pthread_t tid[num_pthreads]; 
+  pthread_t tid[num_pthreads];
 
   for (i = 0; i < num_pthreads; i++) {
-      struct pthread_args_struct *pthread_args = (struct pthread_args_struct *) malloc(sizeof(struct pthread_args_struct));
-      pthread_args->mean_x_array = mean_x_array;
-      pthread_args->mean_y_array = mean_y_array;
-      pthread_args->num_pthreads = num_pthreads;
-      pthread_args->thread_num = i;
+    struct pthread_args_struct *pthread_args =
+        (struct pthread_args_struct *)malloc(
+            sizeof(struct pthread_args_struct));
+    pthread_args->mean_x_array = mean_x_array;
+    pthread_args->mean_y_array = mean_y_array;
+    pthread_args->num_pthreads = num_pthreads;
+    pthread_args->thread_num = i;
 
-    pthread_create(&(tid[i]), NULL, &work, (void *) pthread_args);
+    pthread_create(&(tid[i]), NULL, &work, (void *)pthread_args);
   }
 
   for (i = 0; i < num_pthreads; i++) {
     pthread_join(tid[i], NULL);
   }
 
-  for (i = 0; i < num_frames -1; i++ ){
-    sum_x+=mean_x_array[i] ;
-    sum_y+=mean_y_array[i] ;
+  for (i = 0; i < num_frames - 1; i++) {
+    sum_x += mean_x_array[i];
+    sum_y += mean_y_array[i];
   }
-  
+
   free(mean_x_array);
   free(mean_y_array);
 
-  printf("mean_x: %f, mean_y %f\n", sum_x/(num_frames-1), sum_y/(num_frames-1));
+  printf("mean_x: %f, mean_y %f\n", sum_x / (num_frames - 1),
+         sum_y / (num_frames - 1));
   return 0;
 }
