@@ -7,7 +7,6 @@
 
 __global__ void sum(float * d_x, float * d_y, float * dans, int num_frames) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	printf("%i", idx);
 	
 	dans[0] += d_x[idx];
 	dans[1] += d_y[idx];
@@ -15,44 +14,11 @@ __global__ void sum(float * d_x, float * d_y, float * dans, int num_frames) {
 	__syncthreads();
 }
 
-unsigned int getMAD(const unsigned char *image1, const unsigned char *image2,
-                    int width, int height, unsigned int x2, unsigned int y2,
-                    unsigned int x1, unsigned int y1) {
-  int i, j, m1, n1, m2, n2, diff;
-  unsigned char im1, im2;
-  unsigned int sum, MAD;
-  sum = 0;
-
-  for (i = 0; i < BOX_WIDTH; i++) {
-    m1 = x1 + i;
-    m2 = x2 + i;
-    if (m1 < 0 || m2 < 0 || m1 >= height || m2 >= height) {
-      return 63557;
-    }
-    for (j = 0; j < BOX_WIDTH; j++) {
-
-      n1 = y1 + j;
-      n2 = y2 + j;
-      if (n1 < 0 || n2 < 0 || n1 >= width || n2 >= width) {
-        return 63557;
-      }
-      im1 = image1[m1 + n1 * width];
-      im2 = image2[m2 + width * n2];
-      diff = im1 - im2;
-      if (diff < 0) {
-        diff = -diff;
-      }
-      sum += diff;
-    }
-  }
-  MAD = sum / (BOX_WIDTH * BOX_WIDTH);
-  // printf("%d\n",MAD );
-  return MAD;
-}
-
 // Use exhaustive search Block Matching Motion Estimation algorithm
-void estimate(const unsigned char *image1, const unsigned char *image2,
-              float *mean_x, float *mean_y) {
+__global__ void estimate(float * d_x, float * d_y, int num_frames, unsigned char * d_frames) {
+  int idx = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned char image1 = d_frames[idx-1];
+  unsigned char image2 = d_frames[idx-2];
   unsigned int  x2, y2, box_count;
   int width = 480, height = 360;
   float total_x, total_y;
@@ -73,7 +39,34 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
               y1 + BOX_WIDTH >= height) { // dont execute if out f bounds
             continue;
           }
-          curr_cost = getMAD(image1, image2, width, height, x2, y2, x1, y1);
+          int i, j, m1, n1, m2, n2, diff;
+			unsigned char im1, im2;
+			unsigned int sum;
+			sum = 0;
+			
+			for (i = 0; i < BOX_WIDTH; i++) {
+				m1 = x1 + i;
+				m2 = x2 + i;
+				if (m1 < 0 || m2 < 0 || m1 >= height || m2 >= height) {
+					curr_cost = 63557;
+				}
+				for (j = 0; j < BOX_WIDTH; j++) {
+
+				n1 = y1 + j;
+				n2 = y2 + j;
+				if (n1 < 0 || n2 < 0 || n1 >= width || n2 >= width) {
+					curr_cost = 63557;
+				}
+				im1 = image1[m1 + n1 * width];
+				im2 = image2[m2 + width * n2];
+				diff = im1 - im2;
+				if (diff < 0) {
+					diff = -diff;
+				}
+				sum += diff;
+				}
+			}
+		  curr_cost = sum / (BOX_WIDTH * BOX_WIDTH);
           if (curr_cost < min_cost) { // calculate minimum cost
             min_cost = curr_cost;
             dx = m;
@@ -90,13 +83,14 @@ void estimate(const unsigned char *image1, const unsigned char *image2,
     }
   }
 
-  *mean_x = total_x / box_count; // other calculation can be done with this
-  *mean_y = total_y / box_count;
+  d_x[idx] = total_x / box_count; // other calculation can be done with this
+  d_x[idx] = total_y / box_count;
 }
 
 int main(int argc, char **argv) {
-  unsigned char *frame_1, *frame_2;
-  int i;
+  //unsigned char *frame_1, *frame_2;
+  //int i;
+  int width = 480, height = 360;
   const int FRAME_SIZE = sizeof(float) * (num_frames - 1);
 
   float *mean_x_array = (float *)malloc(sizeof(float) * (num_frames - 1));
@@ -106,22 +100,31 @@ int main(int argc, char **argv) {
   float *d_x;
   float *d_y;
   float *dans;
+  unsigned char *d_frames;
   
   
   cudaMalloc(&d_x, FRAME_SIZE);
   cudaMalloc(&d_y, FRAME_SIZE);
   cudaMalloc(&dans, sizeof(float)*2);
+  cudaMalloc(&d_frames, sizeof(char)*width*height*100);
   printf("%f \n", num_frames);
   
-  for (i = 1; i < num_frames; i++) {
-    frame_1 = frames[i - 1];
-	printf("%c \n", frame_1);
-    frame_2 = frames[i];
-    estimate(frame_1, frame_2, &mean_x_array[i], &mean_y_array[i]);
-  }
+  //for (i = 1; i < num_frames; i++) {
+    //frame_1 = frames[i - 1];
+    //frame_2 = frames[i];
+    //estimate(frame_1, frame_2, &mean_x_array[i], &mean_y_array[i]);
+  //}
   
   cudaMemcpy(d_x, mean_x_array, FRAME_SIZE, cudaMemcpyHostToDevice);
   cudaMemcpy(d_y, mean_y_array, FRAME_SIZE, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_frames, frames, sizeof(char)*width*height*100, cudaMemcpyHostToDevice);
+  
+  estimate<<<(num_frames - 1)/512, 512>>>(d_x, d_y, num_frames, d_frames);
+  //estimate<<<65535, (num_frames-1)/65535>>>(d_x, d_y, num_frames);
+  //estimate<<<(num_frames - 1)/256, 265>>>(d_x, d_y, num_frames);
+  //estimate<<<(num_frames - 1)/128, 128>>>(d_x, d_y, num_frames);
+  //estimate<<<(num_frames - 1)/384, 384>>>(d_x, d_y, num_frames);
+  
   cudaMemcpy(dans, ans, sizeof(float)*2, cudaMemcpyHostToDevice);
   
   sum<<<(num_frames - 1)/512, 512>>>(d_x, d_y, dans, num_frames);
