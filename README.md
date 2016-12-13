@@ -1,14 +1,12 @@
-To run and calcualte timings do:
+To run and calculate timings, run:
 ```
-make 
-make run
+$ make
+$ make run
 ```
 
 
-onldy do 
+If allframes.c is not present, only run:
 ```
-make extract 
- 
-```
-if allframes.c is not present
+$ make extract
 
+```
