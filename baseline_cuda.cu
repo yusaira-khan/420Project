@@ -1,4 +1,6 @@
 #include "all_frames.h"
+#include <cuPrintf.cuh>
+#include <cuPrintf.cu>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,6 +10,7 @@
 __global__ void sum(float * d_x, float * d_y, float * dans, int num_frames) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	
+//printf("thread%d, x %f, y %f", idx, d_x[idx],d_y[idx]);
 	dans[0] += d_x[idx];
 	dans[1] += d_y[idx];
 	
@@ -17,13 +20,15 @@ __global__ void sum(float * d_x, float * d_y, float * dans, int num_frames) {
 // Use exhaustive search Block Matching Motion Estimation algorithm
 __global__ void estimate(float * d_x, float * d_y, int num_frames, unsigned char * d_frames) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
-  unsigned char image1 = d_frames[idx-1];
-  unsigned char image2 = d_frames[idx-2];
+  unsigned char* image1 = &d_frames[idx+1];
+  unsigned char* image2 = &d_frames[idx];
   unsigned int  x2, y2, box_count;
   int width = 480, height = 360;
   float total_x, total_y;
   int m, n, dy, dx, x1, y1, min_cost, curr_cost;
   box_count = 1;
+//printf ("Thread number %d. f = %d\n", threadIdx.x, idx);
+
   for (y2 = 0; y2 < height - BOX_WIDTH; y2 += BOX_WIDTH) {
     for (x2 = 0; x2 < width - BOX_WIDTH; x2 += BOX_WIDTH) {
 
@@ -83,6 +88,7 @@ __global__ void estimate(float * d_x, float * d_y, int num_frames, unsigned char
     }
   }
 
+
   d_x[idx] = total_x / box_count; // other calculation can be done with this
   d_x[idx] = total_y / box_count;
 }
@@ -101,7 +107,7 @@ int main(int argc, char **argv) {
   float *d_y;
   float *dans;
   unsigned char *d_frames;
-  
+ int numblocks =num_frames-1, numthreads=1; 
   
   cudaMalloc(&d_x, FRAME_SIZE);
   cudaMalloc(&d_y, FRAME_SIZE);
@@ -119,25 +125,31 @@ int main(int argc, char **argv) {
   cudaMemcpy(d_y, mean_y_array, FRAME_SIZE, cudaMemcpyHostToDevice);
   cudaMemcpy(d_frames, frames, sizeof(char)*width*height*100, cudaMemcpyHostToDevice);
   
-  estimate<<<(num_frames - 1)/512, 512>>>(d_x, d_y, num_frames, d_frames);
-  //estimate<<<65535, (num_frames-1)/65535>>>(d_x, d_y, num_frames);
-  //estimate<<<(num_frames - 1)/256, 265>>>(d_x, d_y, num_frames);
-  //estimate<<<(num_frames - 1)/128, 128>>>(d_x, d_y, num_frames);
-  //estimate<<<(num_frames - 1)/384, 384>>>(d_x, d_y, num_frames);
+  estimate<<<numblocks, numthreads>>>(d_x, d_y, num_frames, d_frames);
+  {
+    cudaError_t cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess)
+        printf("kernel launch failed with error \"%s\".\n",
+               cudaGetErrorString(cudaerr));
+}
+  
   
   cudaMemcpy(dans, ans, sizeof(float)*2, cudaMemcpyHostToDevice);
   
-  sum<<<(num_frames - 1)/512, 512>>>(d_x, d_y, dans, num_frames);
-  //sum<<<65535, (num_frames-1)/65535>>>(d_x, d_y, dans, num_frames);
-  //sum<<<(num_frames - 1)/256, 265>>>(d_x, d_y, dans, num_frames);
-  //sum<<<(num_frames - 1)/128, 128>>>(d_x, d_y, dans, num_frames);
-  //sum<<<(num_frames - 1)/384, 384>>>(d_x, d_y, dans, num_frames);
+  sum<<<numblocks,numthreads>>>(d_x, d_y, dans, num_frames);
+{
+    cudaError_t cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess)
+        printf("kernel launch failed with error \"%s\".\n",
+
+               cudaGetErrorString(cudaerr));
+}
   
   cudaMemcpy(dans, ans, sizeof(float)*2, cudaMemcpyDeviceToHost);
   cudaFree(d_x);
   cudaFree(d_y);
   
-  printf("mean_x: %f, mean_y %f\n", ans[0] / (num_frames - 1), ans[1] / (num_frames - 1));
+  printf("mean_x: %f, men_y %f\n", ans[0] / (num_frames - 1), ans[1] / (num_frames - 1));
   
   free(mean_x_array);
   free(mean_y_array);
