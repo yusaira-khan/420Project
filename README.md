@@ -14,7 +14,7 @@ To compile & run the CUDA implementation:
 
 - SSH into the queens1 server
 - Copy over baseline_cuda.cu, all_frames.h, videoplayback.mp4
-- Run
+- Run:
 ```
 $ nvcc baseline_cuda.cu -I/usr/local/cuda-6.5/samples/0_Simple/simplePrintf/
 $ ./a.out
